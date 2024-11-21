@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<link rel="stylesheet" href="{% static 'css/Menu/upload_menu.css' %}">
+
+    <div class="container">
+        <div class="header">
+            <h1>Upload Menu File</h1>
+        </div>
+
+        {% if messages %}
+            <div class="messages">
+                <ul>
+                    {% for message in messages %}
+                        <li class="message {{ message.tags }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <div class="form-container">
+            <form method="post" enctype="multipart/form-data" class="upload-form">
+                {% csrf_token %}
+                <label for="file" class="file-label">Choose a Menu File (CSV/Excel)</label>
+                {{ form.as_p }}
+                <button type="submit" class="submit-btn">Upload</button>
+            </form>
+        </div>
+    </div>
+
+
+{% endblock %}

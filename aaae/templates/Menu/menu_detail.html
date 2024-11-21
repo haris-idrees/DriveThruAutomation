@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<link rel="stylesheet" href="{% static 'css/Menu/menu_detail.css' %}">
+
+<div class="menu-container">
+    <div class="menu-header">
+        <h1>{{ menu.restaurant.name }}</h1>
+        <p class="menu-address">{{ menu.restaurant.address }}</p>
+        <p class="menu-contact">Contact: {{ menu.restaurant.contact }}</p>
+    </div>
+
+    <div class="menu-body">
+        {% if menu.categories.all %}
+            {% for category in menu.categories.all %}
+                <div class="menu-category">
+                    <h2 class="category-name">{{ category.name }}</h2>
+                    {% if category.items.all %}
+                        <ul class="category-items">
+                            {% for item in category.items.all %}
+                                <li class="menu-item">
+                                    <div class="item-header">
+                                        <span class="item-name">{{ item.name }}</span>
+                                        <span class="item-price">${{ item.price }}</span>
+                                    </div>
+                                    <p class="item-description">
+                                        {{ item.description|default:"No description available." }}
+                                    </p>
+                                    {% if not item.is_available %}
+                                        <p class="item-unavailable">(Currently unavailable)</p>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="no-items">No items available in this category.</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="no-categories">No categories available for this menu.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

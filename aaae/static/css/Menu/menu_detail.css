@@ -1,0 +1,108 @@
+/* Container styles */
+.menu-container {
+    font-family: 'Georgia', serif;
+    max-width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Header styles */
+.menu-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.menu-header h1 {
+    font-size: 36px;
+    margin: 0;
+    color: #333;
+}
+
+.menu-address,
+.menu-contact {
+    font-size: 14px;
+    color: #666;
+}
+
+/* Body styles */
+.menu-body {
+    margin-top: 20px;
+}
+
+.menu-category {
+    margin-bottom: 30px;
+}
+
+.category-name {
+    font-size: 24px;
+    color: #444;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 5px;
+}
+
+/* Items list styles */
+.category-items {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-item {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dotted #ccc;
+}
+
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.item-description {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #555;
+}
+
+.item-unavailable {
+    color: #ff0000;
+    font-style: italic;
+    font-size: 14px;
+}
+
+/* Empty states */
+.no-categories,
+.no-items {
+    font-size: 16px;
+    color: #888;
+    text-align: center;
+}
+
+/* Media Queries for responsiveness */
+@media (max-width: 600px) {
+    .menu-container {
+        padding: 15px;
+    }
+
+    .menu-header h1 {
+        font-size: 28px;
+    }
+
+    .item-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .item-price {
+        margin-top: 5px;
+        font-size: 16px;
+    }
+}

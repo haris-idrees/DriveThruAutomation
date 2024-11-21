@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+<link rel="stylesheet" href="{% static 'css/Menu/menu_list.css' %}">
+
+<div class="container">
+    <h1>Available Menus</h1>
+
+    {% if menus %}
+        <div class="menu-list">
+            {% for menu in menus %}
+                <div class="menu-item">
+                    <div class="menu-info">
+                        <h2>{{ menu.restaurant.name }}</h2>
+                        <p>{{ menu.restaurant.address }}</p>
+                        <p>Contact: {{ menu.restaurant.contact }}</p>
+
+                        <!-- Categories List -->
+                        {% if menu.categories.all %}
+                            <div class="categories">
+                                <h3>Categories:</h3>
+                                <ul>
+                                    {% for category in menu.categories.all %}
+                                        <li><strong>{{ category.name }}</strong></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% else %}
+                            <p>No categories available for this menu.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- View Full Menu Button -->
+                    <a href="{% url 'menu_detail' menu.id %}" class="btn btn-success view-menu-button">View Full Menu</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No menus available.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
