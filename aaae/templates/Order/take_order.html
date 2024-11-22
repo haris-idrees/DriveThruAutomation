@@ -4,176 +4,138 @@
 
 {% load static %}
 
-<link rel="stylesheet" href="{% static 'css/Order/take_order.css' %}">
-
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 20px;
-        background-color: #f0f0f0;
-    }
-    h1 {
-        text-align: center;
-        color: #333;
-    }
-    .container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background-color: #fff;
-        border-radius: 8px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    }
-    #transcription {
-        width: 100%;
-        height: 150px;
-        margin-top: 20px;
-        padding: 10px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        font-size: 1.1rem;
-        background-color: #f9f9f9;
-        overflow-y: scroll;
-    }
-    .btn {
-        padding: 10px 20px;
-        font-size: 1.2rem;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    .btn:disabled {
-        background-color: #ccc;
-        cursor: not-allowed;
-    }
-    #llmResponses {
-        margin-top: 20px;
-        font-size: 1.2rem;
-        padding: 10px;
-        background-color: #f1f1f1;
-        border-radius: 8px;
-        overflow-y: scroll;
-        max-height: 300px; /* Ensures responses are scrollable */
-    }
-    #llmResponses p {
-        margin: 10px 0;
-        padding: 5px;
-        background-color: #e6e6e6;
-        border-radius: 5px;
-        word-wrap: break-word;
-    }
-</style>
-
-<h1>Order Taking System</h1>
-
-<div class="container">
-    <button id="startButton" class="btn">Start Listening</button>
-    <div id="transcription" contenteditable="true" placeholder="Your speech will appear here..."></div>
-
-    <!-- Section for LLM responses -->
-    <div id="llmResponses"></div>
+<div id="status">Listening...</div>
+<div id="conversation">
+    <p><strong>You:</strong> <span id="userInput">-</span></p>
+    <p><strong>AI:</strong> <span id="aiResponse">-</span></p>
 </div>
 
 <script>
-    // Check if the browser supports SpeechRecognition API
-    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    var recognition;
+    const synth = window.speechSynthesis;
+    let recognition;
+    let isRecognizing = false;
+    let isSpeaking = false;
+    let currentTranscript = '';
 
-    if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = true;  // Keep listening
-        recognition.interimResults = true;  // Show partial results
+    const statusText = document.getElementById("status");
+    const userInputText = document.getElementById("userInput");
+    const aiResponseText = document.getElementById("aiResponse");
 
-        // Start listening when the button is clicked
-        document.getElementById('startButton').addEventListener('click', function() {
-            recognition.start();
-            this.disabled = true;  // Disable the button after starting
-        });
+    // Initialize Speech Recognition
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = true;
+        recognition.interimResults = true;
 
-        // Event triggered when speech is recognized
-        recognition.onresult = function(event) {
-            let finalTranscript = '';
-            let interimTranscript = '';
+        recognition.onstart = function () {
+            console.log("Recognition started...");
+            isRecognizing = true;
+        };
+
+        recognition.onresult = function (event) {
+            let transcript = '';
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                } else {
-                    interimTranscript += event.results[i][0].transcript;
-                }
+                transcript += event.results[i][0].transcript;
             }
 
-            const transcription = finalTranscript + interimTranscript;
-            document.getElementById('transcription').innerText = transcription;
+            console.log("Transcript captured:", transcript);
+            userInputText.textContent = transcript;
+            currentTranscript = transcript;
 
-            // Send transcription to backend in real-time
-            sendTranscriptionToBackend(transcription);
-        };
-
-        // Function to send transcription to the backend and receive LLM response
-        function sendTranscriptionToBackend(transcription) {
-            fetch('process_speech/', {  // Make sure the route is correct for your backend
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken') // CSRF protection
-                },
-                body: JSON.stringify({ transcription: transcription })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const responseText = data.response;
-
-                // Create a new element for the LLM response
-                const responseElement = document.createElement('p');
-                responseElement.textContent = `Assistant: ${responseText}`;
-
-                // Append the new response below the transcription
-                document.getElementById('llmResponses').appendChild(responseElement);
-
-                // Optionally, speak the response aloud
-                const synth = window.speechSynthesis;
-                const utterance = new SpeechSynthesisUtterance(responseText);
-                synth.speak(utterance);
-            })
-            .catch(error => {
-                console.error("Error fetching response:", error);
-            });
-        }
-
-        // Function to get CSRF token for safe API calls
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
+            // Send transcript when user pauses speaking
+            if (event.results[event.resultIndex].isFinal) {
+                sendToBackend(transcript);
             }
-            return cookieValue;
-        }
-
-        // Restart button after recognition stops
-        recognition.onend = function() {
-            document.getElementById('startButton').disabled = false;
         };
 
-        // Handle any recognition errors
-        recognition.onerror = function(event) {
-            console.error('Speech recognition error:', event.error);
+        recognition.onerror = function (event) {
+            console.error("Speech recognition error:", event.error);
+            if (event.error !== 'no-speech') {
+                recognition.stop();
+                isRecognizing = false;
+                statusText.textContent = "Listening...";
+                startRecognition();
+            }
+        };
+
+        recognition.onend = function () {
+            console.log("Recognition ended...");
+            isRecognizing = false;
+            if (!isSpeaking) {
+                startRecognition();
+            }
         };
     } else {
-        alert('Your browser does not support Speech Recognition');
+        console.log("SpeechRecognition API is not supported.");
+    }
+
+    window.onload = function () {
+        startRecognition();
+    };
+
+    // Start Speech Recognition
+    function startRecognition() {
+        if (isRecognizing) {
+            console.log("Recognition already started");
+            return;
+        }
+        recognition.start();
+        isRecognizing = true;
+        statusText.textContent = "Listening...";
+    }
+
+    // Send transcription to backend
+    function sendToBackend(transcript) {
+        console.log("Sending transcription to backend:", transcript);
+
+        fetch("{% url 'process_speech' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({ transcript })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.response) {
+                aiResponseText.textContent = data.response;
+                speakResponse(data.response);
+            }
+        })
+        .catch(error => {
+            console.error("Error sending data to backend:", error);
+        });
+    }
+
+    // Speak the response from the backend using SpeechSynthesisUtterance
+    function speakResponse(responseText) {
+        const utterance = new SpeechSynthesisUtterance(responseText);
+        isSpeaking = true;
+        statusText.textContent = "Speaking...";
+
+        // Stop Recognition immediately when speaking starts
+        recognition.stop();
+
+        utterance.onend = function () {
+            isSpeaking = false;
+            console.log("Speech finished");
+            statusText.textContent = "Listening...";
+            // Restart recognition after speech ends
+            startRecognition();
+        };
+
+        utterance.onerror = function (event) {
+            console.error("Error during speech synthesis:", event.error);
+            isSpeaking = false;
+            statusText.textContent = "Listening...";
+            // Restart recognition if error occurs
+            startRecognition();
+        };
+
+        // Start the speech synthesis
+        synth.speak(utterance);
     }
 </script>
-
 {% endblock %}

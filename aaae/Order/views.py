@@ -6,8 +6,11 @@ from aaae.Menu.models import Menu
 from openai import OpenAI
 from gtts import gTTS
 import json
+import os
+import re
+from dotenv import load_dotenv
 
-# Create your views here.
+load_dotenv()
 
 
 def home(request):
@@ -17,20 +20,27 @@ def home(request):
 @csrf_exempt
 def process_speech(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
-        user_text = data.get('transcription', '')
+        try:
+            if request.content_type != 'application/json':
+                return JsonResponse({"error": "Content-Type must be application/json"}, status=400)
 
-        print(f"Received transcription: {user_text}")
+            data = json.loads(request.body)
+            transcript = data.get('transcript', '')
 
-        response = generate_response(user_text)
+            if not transcript:
+                return JsonResponse({"error": "No transcription received"}, status=400)
 
-        return JsonResponse({'response': response}, status=200)
+            response = generate_response(transcript)
 
-    return JsonResponse({'error': 'Invalid request'}, status=400)
+            return JsonResponse({"response": response})
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
 def generate_response(user_text):
-
     menus = Menu.objects.prefetch_related('categories__items').all()
     menu_text = []
 
@@ -44,12 +54,19 @@ def generate_response(user_text):
     formatted_menu = "\n".join(menu_text)
 
     conversation_history = [{"role": "system",
-                             "content": "You are a helpful restaurant assistant. Your job is to take orders and help customers with menu information."},
+                             "content": "You are a helpful restaurant assistant. Your job is to take orders and help "
+                                        "customers with menu information.\n"
+                                        "While providing menu do not include price and description of the items."
+                                        "Provide price and description only if asked by the customer."
+                                        "Do not include menu in all responses. Provide concise and to the"
+                                        "point responses.\n"
+                                        "Once you have the items that a user want to order you must say 'Okay"
+                                        "Thank you, I have received your order and its being prepared.'"},
                             {"role": "user", "content": "I would like to see the menu."},
                             {"role": "system", "content": formatted_menu}, {"role": "user", "content": user_text}]
 
     try:
-        client = OpenAI(api_key="sk-lIDgH6HO8tblP9FDTkakc-2xVAz_pj9E-tmKjUKtAjT3BlbkFJJDJmbgI-Na92VDktKZDHBxc9BWxg4PHzZtQHdtGikA")
+        client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -57,6 +74,7 @@ def generate_response(user_text):
         )
 
         assistance_response = response.choices[0].message.content
+        assistance_response = clean_response(assistance_response)
 
         print("GBT response: ", assistance_response)
 
@@ -67,3 +85,12 @@ def generate_response(user_text):
     except Exception as e:
         print(f"Error calling LLM: {str(e)}")
         return {}
+
+
+def clean_response(text):
+    # Remove markdown headers
+    text = re.sub(r'###\s+', '', text)
+    # Remove other markdown formatting if necessary
+    text = re.sub(r'###\s+', '', text)
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove bold formatting
+    return text
