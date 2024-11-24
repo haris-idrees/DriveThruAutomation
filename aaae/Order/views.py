@@ -1,19 +1,18 @@
 from django.shortcuts import render
-from django.http import HttpResponse
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from aaae.Menu.models import Menu
-from openai import OpenAI
-from gtts import gTTS
 import json
 import os
-import re
-from dotenv import load_dotenv
-
-load_dotenv()
+from openai import OpenAI
+from django.views import View
+from django.contrib.sessions.models import Session
+from aaae.Menu.models import Menu
 
 
 def home(request):
+    # Initialize conversation history if it doesn't exist
+    if not request.session.get('conversation_history'):
+        request.session['conversation_history'] = initialize_conversation_history()
     return render(request, 'Order/take_order.html')
 
 
@@ -30,9 +29,18 @@ def process_speech(request):
             if not transcript:
                 return JsonResponse({"error": "No transcription received"}, status=400)
 
-            response = generate_response(transcript)
+            # Retrieve conversation history from session
+            conversation_history = request.session.get('conversation_history', [])
+            conversation_history.append({"role": "user", "content": transcript})
 
-            return JsonResponse({"response": response})
+            # Generate response using LLM
+            response_text = generate_response(conversation_history)
+
+            # Append assistant's response to history
+            conversation_history.append({"role": "assistant", "content": response_text})
+            request.session['conversation_history'] = conversation_history  # Update session
+
+            return JsonResponse({"response": response_text})
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
@@ -40,7 +48,7 @@ def process_speech(request):
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
-def generate_response(user_text):
+def initialize_conversation_history():
     menus = Menu.objects.prefetch_related('categories__items').all()
     menu_text = []
 
@@ -53,44 +61,46 @@ def generate_response(user_text):
 
     formatted_menu = "\n".join(menu_text)
 
-    conversation_history = [{"role": "system",
-                             "content": "You are a helpful restaurant assistant. Your job is to take orders and help "
-                                        "customers with menu information.\n"
-                                        "While providing menu do not include price and description of the items."
-                                        "Provide price and description only if asked by the customer."
-                                        "Do not include menu in all responses. Provide concise and to the"
-                                        "point responses.\n"
-                                        "Once you have the items that a user want to order you must say 'Okay"
-                                        "Thank you, I have received your order and its being prepared.'"},
-                            {"role": "user", "content": "I would like to see the menu."},
-                            {"role": "system", "content": formatted_menu}, {"role": "user", "content": user_text}]
+    return [
+        {
+            "role": "system",
+            "content": "You are a helpful restaurant assistant. Provide menu information without prices or descriptions"
+                       "unless asked. When the order is complete, respond with: 'Okay, Thank you, I have received your "
+                       "order and it's being prepared. [ORDER_CONFIRM]'. Do not include any additional text or menu "
+                       "information in this final response."
+        },
+        {"role": "user", "content": "I would like to see the menu."},
+        {"role": "system", "content": formatted_menu},
+    ]
 
+
+def generate_response(conversation_history):
     try:
         client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
+
+        print(conversation_history)
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=conversation_history
         )
 
-        assistance_response = response.choices[0].message.content
-        assistance_response = clean_response(assistance_response)
-
-        print("GBT response: ", assistance_response)
-
-        conversation_history.append({"role": "assistant", "content": assistance_response})
-
-        return response.choices[0].message.content
+        # Clean and return assistant's response
+        assistant_response = response.choices[0].message.content
+        return clean_response(assistant_response)
 
     except Exception as e:
         print(f"Error calling LLM: {str(e)}")
-        return {}
+        return "I'm sorry, there was an issue processing your request. Please try again later."
 
 
 def clean_response(text):
-    # Remove markdown headers
+    import re
     text = re.sub(r'###\s+', '', text)
-    # Remove other markdown formatting if necessary
-    text = re.sub(r'###\s+', '', text)
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Remove bold formatting
-    return text
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    return text.strip()
+
+
+class OrderConfirmed(View):
+    def get(self, request):
+        return render(request, 'Order/order_confirmation.html')

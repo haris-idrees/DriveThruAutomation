@@ -1,13 +1,20 @@
 {% extends 'base.html' %}
 
-{% block content %}
-
 {% load static %}
 
-<div id="status">Listening...</div>
-<div id="conversation">
-    <p><strong>You:</strong> <span id="userInput">-</span></p>
-    <p><strong>AI:</strong> <span id="aiResponse">-</span></p>
+{% block content %}
+
+
+
+<link rel="stylesheet" href="{% static 'css/Order/take_order.css' %}">
+
+
+<div class="content">
+    <div id="status">Listening...</div>
+    <div id="conversation">
+        <p><strong>You:</strong> <span id="userInput">-</span></p>
+        <p><strong>AI:</strong> <span id="aiResponse">-</span></p>
+    </div>
 </div>
 
 <script>
@@ -111,30 +118,32 @@
 
     // Speak the response from the backend using SpeechSynthesisUtterance
     function speakResponse(responseText) {
-        const utterance = new SpeechSynthesisUtterance(responseText);
+        const cleanedResponse = responseText.replace(/[*?#]/g, "");
+        const utterance = new SpeechSynthesisUtterance(cleanedResponse);
         isSpeaking = true;
         statusText.textContent = "Speaking...";
 
-        // Stop Recognition immediately when speaking starts
         recognition.stop();
 
         utterance.onend = function () {
             isSpeaking = false;
             console.log("Speech finished");
-            statusText.textContent = "Listening...";
-            // Restart recognition after speech ends
-            startRecognition();
+
+            if (responseText.includes("[ORDER_CONFIRM]")) {
+                window.location.href = "{% url 'confirm_order' %}";
+            } else {
+                statusText.textContent = "Listening...";
+                startRecognition();
+            }
         };
 
         utterance.onerror = function (event) {
             console.error("Error during speech synthesis:", event.error);
             isSpeaking = false;
             statusText.textContent = "Listening...";
-            // Restart recognition if error occurs
             startRecognition();
         };
 
-        // Start the speech synthesis
         synth.speak(utterance);
     }
 </script>
