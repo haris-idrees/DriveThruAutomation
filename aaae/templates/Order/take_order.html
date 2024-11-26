@@ -5,7 +5,6 @@
 {% block content %}
 
 
-
 <link rel="stylesheet" href="{% static 'css/Order/take_order.css' %}">
 
 
@@ -130,6 +129,7 @@
             console.log("Speech finished");
 
             if (responseText.includes("[ORDER_CONFIRM]")) {
+                console.log("order completed")
                 window.location.href = "{% url 'confirm_order' %}";
             } else {
                 statusText.textContent = "Listening...";

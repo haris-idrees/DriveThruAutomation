@@ -1,19 +1,63 @@
-from django.shortcuts import render
+import requests
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-import os
-from openai import OpenAI
+import uuid
 from django.views import View
 from django.contrib.sessions.models import Session
-from aaae.Menu.models import Menu
+from aaae.Order.models import Order, OrderItem, Transcript
+from utils import initialize_conversation_history, generate_response, finalize_order
 
 
-def home(request):
-    # Initialize conversation history if it doesn't exist
-    if not request.session.get('conversation_history'):
-        request.session['conversation_history'] = initialize_conversation_history()
-    return render(request, 'Order/take_order.html')
+class Orders(View):
+    def get(self, request):
+        orders = Order.objects.select_related('restaurant').all()
+        return render(request, 'Order/Orders.html', {'orders': orders})
+
+
+class OrderDetail(View):
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        order_items = OrderItem.objects.filter(order=order)
+        for item in order_items:
+            print(item.item.price, item.item.name, item.quantity)
+        return render(request, 'Order/order_detail.html', {'order': order, 'order_items': order_items})
+
+
+class TakeOrder(View):
+    def get(self, request):
+
+        del request.session['conversation_history']
+        del request.session['session_id']
+
+        # Generate a new session_id if it doesn't exist, to get unique identifier for conversation transcripts
+        conversation_id = str(uuid.uuid4())
+
+        # save this identifier in session
+        if not request.session.get('session_id'):
+            request.session['session_id'] = conversation_id
+            print("new session created")
+            print(request.session["session_id"])
+
+        print("Existing session", request.session["session_id"])
+
+        # Initialize conversation history if it doesn't exist
+        if not request.session.get('conversation_history'):
+
+            # Save conversation history with initial prompt in the session
+            request.session['conversation_history'] = initialize_conversation_history()
+            initial_prompt = initialize_conversation_history()
+
+            # Save initial prompt to the conversation in database with a unique identifier
+            for message in initial_prompt:
+                Transcript.objects.create(
+                    conversation_id=conversation_id,
+                    role=message["role"],
+                    content=message["content"]
+                )
+
+        return render(request, 'Order/take_order.html')
 
 
 @csrf_exempt
@@ -31,14 +75,30 @@ def process_speech(request):
 
             # Retrieve conversation history from session
             conversation_history = request.session.get('conversation_history', [])
+
+            # Append customer response to conversation history
             conversation_history.append({"role": "user", "content": transcript})
 
             # Generate response using LLM
             response_text = generate_response(conversation_history)
 
-            # Append assistant's response to history
+            if '[ORDER_CONFIRM]' in response_text:
+
+                finalize_order(request.session['session_id'], conversation_history)
+
+                print("Order finalized")
+
+                print("Clear sessions")
+                request.session.pop('conversation_history', None)
+                request.session.pop('session_id', None)
+
+                print("Going to confirmation page")
+
+            # Append LLM's response to history
             conversation_history.append({"role": "assistant", "content": response_text})
-            request.session['conversation_history'] = conversation_history  # Update session
+
+            # Update conversation history in session
+            request.session['conversation_history'] = conversation_history
 
             return JsonResponse({"response": response_text})
 
@@ -48,59 +108,8 @@ def process_speech(request):
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
-def initialize_conversation_history():
-    menus = Menu.objects.prefetch_related('categories__items').all()
-    menu_text = []
-
-    for menu in menus:
-        menu_text.append(f"Restaurant: {menu.restaurant.name}")
-        for category in menu.categories.filter(is_available=True):
-            menu_text.append(f"  Category: {category.name}")
-            for item in category.items.filter(is_available=True):
-                menu_text.append(f"    - {item.name}: {item.description or 'No description'} (Price: ${item.price})")
-
-    formatted_menu = "\n".join(menu_text)
-
-    return [
-        {
-            "role": "system",
-            "content": "You are a helpful restaurant assistant. Provide menu information without prices or descriptions"
-                       "unless asked. When the order is complete, respond with: 'Okay, Thank you, I have received your "
-                       "order and it's being prepared. [ORDER_CONFIRM]'. Do not include any additional text or menu "
-                       "information in this final response."
-        },
-        {"role": "user", "content": "I would like to see the menu."},
-        {"role": "system", "content": formatted_menu},
-    ]
-
-
-def generate_response(conversation_history):
-    try:
-        client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
-
-        print(conversation_history)
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=conversation_history
-        )
-
-        # Clean and return assistant's response
-        assistant_response = response.choices[0].message.content
-        return clean_response(assistant_response)
-
-    except Exception as e:
-        print(f"Error calling LLM: {str(e)}")
-        return "I'm sorry, there was an issue processing your request. Please try again later."
-
-
-def clean_response(text):
-    import re
-    text = re.sub(r'###\s+', '', text)
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
-    return text.strip()
-
-
 class OrderConfirmed(View):
     def get(self, request):
         return render(request, 'Order/order_confirmation.html')
+
+

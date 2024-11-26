@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/Order/order_detail.css' %}">
+
+<div class="order-detail-container">
+  <h1>Order Details</h1>
+  <div class="order-summary">
+    <p><strong>Customer Name:</strong> {{ order.customer_name }}</p>
+    <p><strong>Restaurant:</strong> {{ order.restaurant.name }}</p>
+    <p><strong>Total Bill:</strong> {{ order.total_bill }}</p>
+  </div>
+
+  <h2>Order Items</h2>
+  <table class="styled-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Quantity</th>
+        <th>Price</th>
+        <th>Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+        {% for item in order_items %}
+            <tr>
+                <td class="name">{{ item.item.name }}</td>
+                <td class="quantity">{{ item.quantity }}</td>
+                <td class="price">{{ item.item.price }}</td>
+                <td class="total-price"></td>
+            </tr>
+        {% endfor %}
+    </tbody>
+  </table>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Loop through all rows to update the total price
+        let rows = document.querySelectorAll('tr');
+        rows.forEach(function(row) {
+            let quantityCell = row.querySelector('td:nth-child(2)');
+            let priceCell = row.querySelector('td:nth-child(3)');
+            let totalCell = row.querySelector('td:nth-child(4)');
+
+            if (quantityCell && priceCell && totalCell) {
+                let quantity = parseFloat(quantityCell.textContent) || 0;  // Default to 0 if NaN
+                let price = parseFloat(priceCell.textContent.replace('$', '')) || 0;
+                let total = quantity * price;
+                totalCell.textContent = total.toFixed(2); // Update the total cell
+            }
+        });
+    });
+</script>
+
+  <a href="{% url 'home' %}" class="btn btn-back">Back to Orders</a>
+</div>
+
+{% endblock %}

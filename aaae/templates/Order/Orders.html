@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+
+
+<link rel="stylesheet" href="{% static 'css/Order/Orders.css' %}">
+
+
+  <div class="header">
+    <h1>Orders List</h1>
+    <a href="{% url 'take_order' %}" class="btn btn-primary">Take Order</a>
+  </div>
+
+  <table class="styled-table">
+    <thead>
+      <tr>
+        <th>Order ID</th>
+        <th>Customer Name</th>
+        <th>Restaurant</th>
+        <th>Total Bill</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for order in orders %}
+        <tr>
+          <td>{{ order.id }}</td>
+          <td>{{ order.customer_name }}</td>
+          <td>{{ order.restaurant.name }}</td>
+          <td>{{ order.total_bill }}</td>
+          <td>
+            <a href="{% url 'order_detail' order.id %}" class="btn btn-view">View</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No orders found.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+
+

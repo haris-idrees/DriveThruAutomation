@@ -1,0 +1,76 @@
+/* Order Details Page Styling */
+.order-detail-container {
+  max-width: 800px;
+  margin: 20px auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.order-detail-container h1 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.order-summary {
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+}
+
+.order-summary p {
+  margin: 5px 0;
+  font-size: 16px;
+}
+
+.order-summary p strong {
+  color: #555;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 16px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+.styled-table thead tr {
+  background-color: #007bff;
+  color: #ffffff;
+}
+
+.styled-table th, .styled-table td {
+  padding: 10px 12px;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+  background-color: #f9f9f9;
+}
+
+.styled-table tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+.styled-table td:last-child {
+  font-weight: bold;
+  color: #007bff;
+}
+
+.btn-back {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #6c757d;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.btn-back:hover {
+  background-color: #5a6268;
+}

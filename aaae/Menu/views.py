@@ -1,11 +1,9 @@
-from django.shortcuts import render
-from django.http import HttpResponse
-
 import csv
 import pandas as pd
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import FileUploadForm
+from django.db import transaction
 from .models import Category, CategoryItem, Menu
 
 
@@ -39,24 +37,25 @@ def handle_csv_file(file):
     decoded_file = file.read().decode('utf-8').splitlines()
     reader = csv.DictReader(decoded_file)
 
-    for row in reader:
-        category_name = row.get('Category')
-        item_name = row.get('Item')
-        description = row.get('Description')
-        price = row.get('Price')
+    with transaction.atomic():
+        for row in reader:
+            category_name = row.get('Category')
+            item_name = row.get('Item')
+            description = row.get('Description')
+            price = row.get('Price')
 
-        print("category_name: ", category_name)
+            print("category_name: ", category_name)
 
-        # Create or get category
-        category, created = Category.objects.get_or_create(name=category_name)
-        print("Category created")
-        # Create menu item
-        CategoryItem.objects.create(
-            category=category,
-            name=item_name,
-            description=description,
-            price=price
-        )
+            # Create or get category
+            category, created = Category.objects.get_or_create(name=category_name)
+            print("Category created")
+            # Create menu item
+            CategoryItem.objects.create(
+                category=category,
+                name=item_name,
+                description=description,
+                price=price
+            )
 
 
 def handle_excel_file(file):
