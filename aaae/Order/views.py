@@ -17,6 +17,9 @@ class Orders(View):
 
 
 class OrderDetail(View):
+    """
+    View to display order details
+    """
     def get(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
         order_items = OrderItem.objects.filter(order=order)
@@ -26,42 +29,39 @@ class OrderDetail(View):
 
 
 class TakeOrder(View):
+    """
+    View to take an order
+    """
     def get(self, request):
 
-        del request.session['conversation_history']
-        del request.session['session_id']
+        # Clear session if already exists
+        if request.session.get('session_id'):
+            del request.session['session_id']
+            del request.session['conversation_history']
 
-        # Generate a new session_id if it doesn't exist, to get unique identifier for conversation transcripts
+        # Generate a new session id
         conversation_id = str(uuid.uuid4())
+        request.session['session_id'] = conversation_id
+        print("new session created")
 
-        # save this identifier in session
-        if not request.session.get('session_id'):
-            request.session['session_id'] = conversation_id
-            print("new session created")
-            print(request.session["session_id"])
+        # Save conversation history with initial prompt in the session
+        initial_prompt = initialize_conversation_history()
+        request.session['conversation_history'] = initial_prompt
 
-        print("Existing session", request.session["session_id"])
-
-        # Initialize conversation history if it doesn't exist
-        if not request.session.get('conversation_history'):
-
-            # Save conversation history with initial prompt in the session
-            request.session['conversation_history'] = initialize_conversation_history()
-            initial_prompt = initialize_conversation_history()
-
-            # Save initial prompt to the conversation in database with a unique identifier
-            for message in initial_prompt:
-                Transcript.objects.create(
-                    conversation_id=conversation_id,
-                    role=message["role"],
-                    content=message["content"]
-                )
+        # Save initial prompt to the conversation in database with a unique identifier
+        for message in initial_prompt:
+            Transcript.objects.create(
+                conversation_id=conversation_id,
+                role=message["role"],
+                content=message["content"]
+            )
 
         return render(request, 'Order/take_order.html')
 
 
 @csrf_exempt
 def process_speech(request):
+
     if request.method == 'POST':
         try:
             if request.content_type != 'application/json':
@@ -82,6 +82,13 @@ def process_speech(request):
             # Generate response using LLM
             response_text = generate_response(conversation_history)
 
+            # Append LLM's response to history
+            conversation_history.append({"role": "assistant", "content": response_text})
+
+            # Update conversation history in session
+            request.session['conversation_history'] = conversation_history
+
+            # Check if conversation is ended
             if '[ORDER_CONFIRM]' in response_text:
 
                 finalize_order(request.session['session_id'], conversation_history)
@@ -93,12 +100,6 @@ def process_speech(request):
                 request.session.pop('session_id', None)
 
                 print("Going to confirmation page")
-
-            # Append LLM's response to history
-            conversation_history.append({"role": "assistant", "content": response_text})
-
-            # Update conversation history in session
-            request.session['conversation_history'] = conversation_history
 
             return JsonResponse({"response": response_text})
 
@@ -113,3 +114,16 @@ class OrderConfirmed(View):
         return render(request, 'Order/order_confirmation.html')
 
 
+class OrderTranscription(View):
+    def get(self, request, conversation_id):
+        conversation = Transcript.objects.filter(conversation_id=conversation_id)
+        for text in conversation:
+            print(text.role, ": ", text.content)
+
+        return render(
+            request, 'Order/order_transcription.html',
+            {
+                'conversation_id': conversation_id,
+                'conversation': conversation
+            }
+        )

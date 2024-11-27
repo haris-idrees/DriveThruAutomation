@@ -117,12 +117,14 @@
 
     // Speak the response from the backend using SpeechSynthesisUtterance
     function speakResponse(responseText) {
-        const cleanedResponse = responseText.replace(/[*?#]/g, "");
+        const cleanedResponse = responseText.replace(/[*?#-]/g, "");
         const utterance = new SpeechSynthesisUtterance(cleanedResponse);
         isSpeaking = true;
         statusText.textContent = "Speaking...";
 
         recognition.stop();
+
+        console.log(responseText);
 
         utterance.onend = function () {
             isSpeaking = false;

@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+
+
+<link rel="stylesheet" href="{% static 'css/Order/order_transcription.css' %}">
+
+    <div class="container">
+        <h1>Order Transcription</h1>
+        <div class="transcription">
+            {% for text in conversation %}
+                <div class="transcript-entry {{ text.role }}">
+                    <strong>{{ text.role|capfirst }}:</strong>
+                    <p>{{ text.content }}</p>
+                    <span class="timestamp">{{ text.timestamp|date:"Y-m-d H:i:s" }}</span>
+                </div>
+            {% empty %}
+                <p>No transcriptions available for this conversation.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+{% endblock %}

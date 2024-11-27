@@ -37,7 +37,7 @@ SECRET_KEY = "django-insecure-z%@$b&#89mtt74a@7@+#f*kbsc6ca_t3gfs0udb6-y845emwn&
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "51492d52d1ade83eb5da6ebe47586536.serveo.net",
+    "0ef80166a341eb7fadd2d73f572262cc.serveo.net",
     "127.0.0.1"
 ]
 

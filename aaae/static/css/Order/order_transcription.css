@@ -1,0 +1,84 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+.transcription {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.transcript-entry {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 10px;
+    position: relative;
+    max-width: 70%;
+}
+
+.transcript-entry.user {
+    background-color: #e1f5fe;
+    align-self: flex-end; /* Align user messages to the right */
+    margin-left: auto; /* Push user messages to the right */
+}
+
+.transcript-entry.assistant {
+    background-color: #ffe0b2;
+    align-self: flex-start; /* Align assistant messages to the left */
+}
+
+.transcript-entry.system {
+    background-color: #e0e0e0;
+    align-self: center; /* Center system messages */
+}
+
+strong {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.timestamp {
+    font-size: 0.8em;
+    color: #888;
+    display: block;
+    margin-top: 5px;
+}
+
+.transcript-entry::before {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+}
+
+.transcript-entry.user::before {
+    border-top: 10px solid #e1f5fe; /* Triangle for user */
+    right: -10px; /* Positioning for user */
+    top: 10px;
+}
+
+.transcript-entry.assistant::before {
+    border-top: 10px solid #ffe0b2; /* Triangle for assistant */
+    left: -10px; /* Positioning for assistant */
+    top: 10px;
+}
