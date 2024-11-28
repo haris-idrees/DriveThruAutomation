@@ -114,6 +114,12 @@
                 audioResponse.onended = function() {
                     isSpeaking = false;
                     statusText.textContent = "Listening...";
+                    if (data.response_text.includes("[ORDER_CONFIRM]")) {
+                        console.log("order completed")
+                        window.location.href = "{% url 'confirm_order' %}";
+                    } else {
+                        startRecognition();
+                    }
                     startRecognition();
                 };
             }

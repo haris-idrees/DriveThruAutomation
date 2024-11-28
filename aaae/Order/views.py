@@ -100,7 +100,8 @@ def process_speech(request):
 
             return JsonResponse({
                 "message": "Audio processed successfully!",
-                "audio_url": response_url
+                "audio_url": response_url,
+                "response_text": response_text,
             })
 
         except json.JSONDecodeError:
