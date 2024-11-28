@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+
+
+<link rel="stylesheet" href="{% static 'css/Order/take_order.css' %}">
+
+<div class="content">
+    <div id="status">Listening...</div>
+    <div id="conversation">
+        <p><strong>You:</strong> <span id="userInput">-</span></p>
+        <audio id="audio-response" controls></audio>
+    </div>
+</div>
+
+<script>
+    let recognition;
+    let isRecognizing = false;
+    let isSpeaking = false;
+    let currentTranscript = '';
+
+    const statusText = document.getElementById("status");
+    const userInputText = document.getElementById("userInput");
+    const audioResponse = document.getElementById("audio-response");
+
+    // Initialize Speech Recognition
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = function () {
+            console.log("Recognition started...");
+            isRecognizing = true;
+        };
+
+        recognition.onresult = function (event) {
+            let transcript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+
+            console.log("Transcript captured:", transcript);
+            userInputText.textContent = transcript;
+            currentTranscript = transcript;
+
+            // Send transcript when user pauses speaking
+            if (event.results[event.resultIndex].isFinal) {
+                sendToBackend(transcript);
+            }
+        };
+
+        recognition.onerror = function (event) {
+            console.error("Speech recognition error:", event.error);
+            if (event.error !== 'no-speech') {
+                recognition.stop();
+                isRecognizing = false;
+                statusText.textContent = "Listening...";
+                startRecognition();
+            }
+        };
+
+        recognition.onend = function () {
+            console.log("Recognition ended...");
+            isRecognizing = false;
+            if (!isSpeaking) {
+                startRecognition();
+            }
+        };
+    } else {
+        console.log("SpeechRecognition API is not supported.");
+    }
+
+    window.onload = function () {
+        startRecognition();
+    };
+
+    // Start Speech Recognition
+    function startRecognition() {
+        if (isRecognizing) {
+            console.log("Recognition already started");
+            return;
+        }
+        recognition.start();
+        isRecognizing = true;
+        statusText.textContent = "Listening...";
+    }
+
+    // Send transcription to backend
+    function sendToBackend(transcript) {
+        console.log("Sending transcription to backend:", transcript);
+
+        fetch("{% url 'process_speech' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({ transcript })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.audio_url) {
+                // Set the audio source to the URL from the backend
+                audioResponse.src = data.audio_url;
+                audioResponse.load();
+                audioResponse.play();
+                isSpeaking = true;
+                statusText.textContent = "Speaking...";
+
+                audioResponse.onended = function() {
+                    isSpeaking = false;
+                    statusText.textContent = "Listening...";
+                    startRecognition();
+                };
+            }
+        })
+        .catch(error => {
+            console.error("Error sending data to backend:", error);
+        });
+    }
+</script>
+
+{% endblock %}

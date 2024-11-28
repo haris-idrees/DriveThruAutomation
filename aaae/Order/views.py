@@ -7,7 +7,7 @@ import uuid
 from django.views import View
 from django.contrib.sessions.models import Session
 from aaae.Order.models import Order, OrderItem, Transcript
-from utils import initialize_conversation_history, generate_response, finalize_order
+from utils import initialize_conversation_history, generate_response, finalize_order, response_to_audio
 
 
 class Orders(View):
@@ -48,15 +48,7 @@ class TakeOrder(View):
         initial_prompt = initialize_conversation_history()
         request.session['conversation_history'] = initial_prompt
 
-        # Save initial prompt to the conversation in database with a unique identifier
-        for message in initial_prompt:
-            Transcript.objects.create(
-                conversation_id=conversation_id,
-                role=message["role"],
-                content=message["content"]
-            )
-
-        return render(request, 'Order/take_order.html')
+        return render(request, 'Order/take_order_2.html')
 
 
 @csrf_exempt
@@ -88,6 +80,11 @@ def process_speech(request):
             # Update conversation history in session
             request.session['conversation_history'] = conversation_history
 
+            # Update conversation history in session
+            request.session['conversation_history'] = conversation_history
+
+            response_url = response_to_audio(response_text)
+
             # Check if conversation is ended
             if '[ORDER_CONFIRM]' in response_text:
 
@@ -101,7 +98,10 @@ def process_speech(request):
 
                 print("Going to confirmation page")
 
-            return JsonResponse({"response": response_text})
+            return JsonResponse({
+                "message": "Audio processed successfully!",
+                "audio_url": response_url
+            })
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)

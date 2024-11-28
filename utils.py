@@ -5,6 +5,7 @@ from django.db import transaction
 import os
 import json
 from openai import OpenAI
+import uuid
 
 
 def generate_response(conversation_history):
@@ -20,7 +21,7 @@ def generate_response(conversation_history):
 
         # Clean and return assistant's response
         assistant_response = response.choices[0].message.content
-        print("AI response:" ,assistant_response)
+        print("AI response:", assistant_response)
         return clean_response(assistant_response)
 
     except Exception as e:
@@ -51,6 +52,7 @@ def initialize_conversation_history():
              categories, explicitly ask:
                 - "Would you like to add any beverages to your order?"
                 - "Would you like to add a dessert to your order?"
+             Do not ask for these categories if they are not present in the menu.
                 
         6.**Order Confirmation:** After confirming the order, provide the final acknowledgment in this exact format:
                  "Okay, thank you. I have received your order and it is being prepared. [ORDER_CONFIRM]". 
@@ -193,3 +195,40 @@ def get_menu():
 
     formatted_menu = "\n".join(menu_text)
     return formatted_menu
+
+
+def response_to_audio(text):
+    try:
+        client = OpenAI(api_key=os.getenv('OPENAI_KEY'))
+
+        response = client.audio.speech.create(
+            model="tts-1",
+            voice="alloy",
+            input=text,
+        )
+
+        # Get the audio content as bytes
+        audio_data = response.content
+
+        # Generate a unique filename for the audio response
+        audio_response_name = f'response_{uuid.uuid4().hex}.mp3'
+
+        # Define the upload directory
+        upload_dir = os.path.join(settings.MEDIA_ROOT)  # Use MEDIA_ROOT
+
+        # Ensure the 'uploads' directory exists
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Save the audio file to the media directory
+        file_path = os.path.join(upload_dir, audio_response_name)
+        with open(file_path, "wb") as f:
+            f.write(audio_data)
+
+        # Return the media URL
+        audio_url = settings.MEDIA_URL + audio_response_name
+        return audio_url  # Return the URL instead of file_path
+
+    except Exception as e:
+        print(f"OpenAI API error: {str(e)}")
+        return None
+
