@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% load static %}
+
+
+<script>
+    // Variables to hold media stream and recorder
+    let mediaStream;
+    let mediaRecorder;
+    let recordedChunks = [];
+    let isRecording = false;
+    const SpeechThreshold = 100; // Adjust based on noise level
+    const SilenceThreshold = 1000; // Time in milliseconds
+    let timeout;
+
+    // Function to start recording
+    function startRecording(stream) {
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.start();
+
+        mediaRecorder.ondataavailable = event => {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            // Create Blob from recorded chunks
+            const audioBlob = new Blob(recordedChunks, { type: 'audio/wav' });
+            recordedChunks = [];
+
+            // Send the audio Blob to the backend
+            const formData = new FormData();
+            formData.append('audio_file', audioBlob, 'recording.wav');
+
+            fetch('process_recording/', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        };
+
+        isRecording = true;
+    }
+
+    // Function to detect silence
+    function checkSilence(audioContext, source) {
+        const processor = audioContext.createScriptProcessor(1024, 1, 1);
+        let silenceCount = 0;
+
+        processor.onaudioprocess = function(e) {
+            const buffer = e.inputBuffer.getChannelData(0);
+            let sum = 0;
+            for (let i = 0; i < buffer.length; i++) {
+                sum += buffer[i] * buffer[i];
+            }
+            const average = sum / buffer.length;
+            const rms = Math.sqrt(average);
+
+            if (rms < SpeechThreshold / 10000) {
+                silenceCount += 1024 / audioContext.sampleRate * 1000; // Time in milliseconds
+                if (silenceCount >= SilenceThreshold && isRecording) {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                }
+            } else {
+                silenceCount = 0;
+            }
+        };
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+    }
+
+    // Main function to initialize recording
+    window.onload = function() {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaStream = stream;
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(stream);
+                checkSilence(audioContext, source);
+
+                startRecording(stream);
+            })
+            .catch(error => {
+                console.error('Error accessing microphone.', error);
+            });
+    };
+</script>
+
+{% endblock %}

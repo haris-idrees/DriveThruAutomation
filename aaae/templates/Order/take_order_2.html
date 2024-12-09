@@ -4,15 +4,14 @@
 
 {% block content %}
 
-
 <link rel="stylesheet" href="{% static 'css/Order/take_order.css' %}">
-
 
 <div class="content">
     <div id="status">Listening...</div>
     <div id="conversation">
         <p><strong>You:</strong> <span id="userInput">-</span></p>
         <p><strong>AI:</strong> <span id="aiResponse">-</span></p>
+        <p id="timeTaken" style="font-weight: bold; color: blue;"></p>
     </div>
 </div>
 
@@ -22,9 +21,8 @@
     let isRecognizing = false;
     let isSpeaking = false;
     let currentTranscript = '';
-
     let silenceTimer;
-    let startTime;
+    let startTime; // Variable to record the start time
 
     const statusText = document.getElementById("status");
     const userInputText = document.getElementById("userInput");
@@ -43,8 +41,9 @@
         };
 
         recognition.onresult = function (event) {
-            let transcript = '';
+            clearTimeout(silenceTimer);
 
+            let transcript = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 transcript += event.results[i][0].transcript;
             }
@@ -53,9 +52,14 @@
             userInputText.textContent = transcript;
             currentTranscript = transcript;
 
-            // Send transcript when user pauses speaking
             if (event.results[event.resultIndex].isFinal) {
                 sendToBackend(transcript);
+            } else {
+                // Start silence timer for interim results
+                silenceTimer = setTimeout(() => {
+                    console.log("Silence detected, sending interim transcript.");
+                    sendToBackend(transcript);
+                }, 1000); // 1 second of silence
             }
         };
 
@@ -97,11 +101,10 @@
 
     // Send transcription to backend
     function sendToBackend(transcript) {
+        console.log("Sending transcription to backend:", transcript);
 
         // Record the start time
         startTime = performance.now();
-
-        console.log("Sending transcription to backend:", transcript);
 
         fetch("{% url 'process_speech' %}", {
             method: "POST",
@@ -123,49 +126,55 @@
         });
     }
 
+    <script src="https://gist.github.com/guest271314/f48ee0658bc9b948766c67126ba9104c.js"></script>
+
     // Speak the response from the backend using SpeechSynthesisUtterance
     function speakResponse(responseText) {
-        const cleanedResponse = responseText.replace(/[*?#-]/g, "");
-        const utterance = new SpeechSynthesisUtterance(cleanedResponse);
+<!--        const cleanedResponse = responseText.replace(/[*?#-]/g, "");-->
+<!--        const utterance = new SpeechSynthesisUtterance(cleanedResponse);-->
 
-        const voices = synth.getVoices();
+<!--        const voices = synth.getVoices();-->
 
-        utterance.voice = voices[5];
+<!--        utterance.voice = voices[5];-->
 
+<!--        isSpeaking = true;-->
+<!--        statusText.textContent = "Speaking...";-->
 
-        isSpeaking = true;
-        statusText.textContent = "Speaking...";
+<!--        recognition.stop();-->
 
-        recognition.stop();
+<!--        console.log(responseText);-->
 
-        console.log(responseText);
+<!--        // Calculate and display the total time-->
+<!--        const endTime = performance.now();-->
+<!--        const totalTime = (endTime - startTime).toFixed(2); // Time in milliseconds-->
+<!--        console.log(`Total time from sending to speaking: ${totalTime} ms`);-->
+<!--        timeTakenDisplay.textContent = `Total Time: ${totalTime} ms`;-->
 
-        // Calculate and display the total time
-        const endTime = performance.now();
-        const totalTime = (endTime - startTime).toFixed(2); // Time in milliseconds
-        console.log(`Total time from sending to speaking: ${totalTime} ms`);
+<!--        utterance.onend = function () {-->
+<!--            isSpeaking = false;-->
+<!--            console.log("Speech finished");-->
 
-        utterance.onend = function () {
-            isSpeaking = false;
-            console.log("Speech finished");
+<!--            if (responseText.includes("[ORDER_CONFIRM]")) {-->
+<!--                console.log("Order completed");-->
+<!--                window.location.href = "{% url 'confirm_order' %}";-->
+<!--            } else {-->
+<!--                statusText.textContent = "Listening...";-->
+<!--                startRecognition();-->
+<!--            }-->
+<!--        };-->
 
-            if (responseText.includes("[ORDER_CONFIRM]")) {
-                console.log("order completed")
-                window.location.href = "{% url 'confirm_order' %}";
-            } else {
-                statusText.textContent = "Listening...";
-                startRecognition();
-            }
-        };
+<!--        utterance.onerror = function (event) {-->
+<!--            console.error("Error during speech synthesis:", event.error);-->
+<!--            isSpeaking = false;-->
+<!--            statusText.textContent = "Listening...";-->
+<!--            startRecognition();-->
+<!--        };-->
 
-        utterance.onerror = function (event) {
-            console.error("Error during speech synthesis:", event.error);
-            isSpeaking = false;
-            statusText.textContent = "Listening...";
-            startRecognition();
-        };
+<!--        speechSynthesis.speak(utterance);-->
 
-        synth.speak(utterance);
+            meSpeak.loadVoice('en/en-us');
+            meSpeak.speak('hello world');
     }
 </script>
+
 {% endblock %}

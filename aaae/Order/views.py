@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 import uuid
+import time
 from django.views import View
 from django.contrib.sessions.models import Session
 from aaae.Order.models import Order, OrderItem, Transcript
@@ -56,56 +57,91 @@ class TakeOrder(View):
                 content=message["content"]
             )
 
-        return render(request, 'Order/take_order.html')
+        return render(request, 'Order/take_order_2.html')
 
 
 @csrf_exempt
 def process_speech(request):
+    start_time = time.time()  # Record the start time of the function
+    total_step_time = 0  # Variable to track total time spent on all steps
 
     if request.method == 'POST':
         try:
+            step_start_time = time.time()
             if request.content_type != 'application/json':
                 return JsonResponse({"error": "Content-Type must be application/json"}, status=400)
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Check Content-Type: {step_time:.6f} seconds")
 
+            step_start_time = time.time()
             data = json.loads(request.body)
-            transcript = data.get('transcript', '')
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Parse JSON: {step_time:.6f} seconds")
 
+            step_start_time = time.time()
+            transcript = data.get('transcript', '')
             if not transcript:
                 return JsonResponse({"error": "No transcription received"}, status=400)
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Retrieve transcript: {step_time:.6f} seconds")
 
-            # Retrieve conversation history from session
+            step_start_time = time.time()
             conversation_history = request.session.get('conversation_history', [])
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Retrieve conversation history: {step_time:.6f} seconds")
 
-            # Append customer response to conversation history
+            step_start_time = time.time()
             conversation_history.append({"role": "user", "content": transcript})
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Append user response: {step_time:.6f} seconds")
 
-            # Generate response using LLM
-            response_text = generate_response(conversation_history)
+            step_start_time = time.time()
+            response_text = "I am also good lets meet tonight.  "  # Simulated response
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Generate response (LLM): {step_time:.6f} seconds")
 
-            # Append LLM's response to history
+            step_start_time = time.time()
             conversation_history.append({"role": "assistant", "content": response_text})
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Append assistant response: {step_time:.6f} seconds")
 
-            # Update conversation history in session
+            step_start_time = time.time()
             request.session['conversation_history'] = conversation_history
+            step_time = time.time() - step_start_time
+            total_step_time += step_time
+            print(f"Update session: {step_time:.6f} seconds")
 
-            # Check if conversation is ended
             if '[ORDER_CONFIRM]' in response_text:
-
+                step_start_time = time.time()
                 finalize_order(request.session['session_id'], conversation_history)
+                step_time = time.time() - step_start_time
+                total_step_time += step_time
+                print(f"Finalize order: {step_time:.6f} seconds")
 
-                print("Order finalized")
-
-                print("Clear sessions")
+                step_start_time = time.time()
                 request.session.pop('conversation_history', None)
                 request.session.pop('session_id', None)
+                step_time = time.time() - step_start_time
+                total_step_time += step_time
+                print(f"Clear sessions: {step_time:.6f} seconds")
 
-                print("Going to confirmation page")
-
+            total_time = time.time() - start_time
+            print(f"Total step time: {total_step_time:.6f} seconds")
+            print(f"Total function execution time: {total_time:.6f} seconds")
             return JsonResponse({"response": response_text})
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
+    total_time = time.time() - start_time
+    print(f"Total function execution time: {total_time:.6f} seconds")
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
