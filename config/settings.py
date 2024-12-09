@@ -26,6 +26,9 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 OPEN_AI_KEY = env('OPENAI_KEY')
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -37,7 +40,7 @@ SECRET_KEY = "django-insecure-z%@$b&#89mtt74a@7@+#f*kbsc6ca_t3gfs0udb6-y845emwn&
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "0ef80166a341eb7fadd2d73f572262cc.serveo.net",
+    "8e809b451e93effea14f6f864771d17e.serveo.net",
     "127.0.0.1"
 ]
 

@@ -4,11 +4,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 import uuid
-import time
 from django.views import View
 from django.contrib.sessions.models import Session
 from aaae.Order.models import Order, OrderItem, Transcript
-from utils import initialize_conversation_history, generate_response, finalize_order
+from utils import initialize_conversation_history, generate_response, finalize_order, response_to_audio
 
 
 class Orders(View):
@@ -30,6 +29,9 @@ class OrderDetail(View):
 
 
 class TakeOrder(View):
+    """
+    View to take an order
+    """
     def get(self, request):
 
         # Clear session if already exists
@@ -46,20 +48,11 @@ class TakeOrder(View):
         initial_prompt = initialize_conversation_history()
         request.session['conversation_history'] = initial_prompt
 
-        # Save initial prompt to the conversation in database with a unique identifier
-        for message in initial_prompt:
-            Transcript.objects.create(
-                conversation_id=conversation_id,
-                role=message["role"],
-                content=message["content"]
-            )
-
-        return render(request, 'Order/take_order.html')
+        return render(request, 'Order/take_order_2.html')
 
 
 @csrf_exempt
 def process_speech(request):
-    start_time = time.time()  # Record the start time of the function
 
     if request.method == 'POST':
         try:
@@ -67,35 +60,53 @@ def process_speech(request):
                 return JsonResponse({"error": "Content-Type must be application/json"}, status=400)
 
             data = json.loads(request.body)
-
             transcript = data.get('transcript', '')
+
             if not transcript:
                 return JsonResponse({"error": "No transcription received"}, status=400)
 
+            # Retrieve conversation history from session
             conversation_history = request.session.get('conversation_history', [])
 
+            # Append customer response to conversation history
             conversation_history.append({"role": "user", "content": transcript})
 
-            response_text = "I am also good lets meet tonight.  "
-            # response_text = generate_response(conversation_history)
+            # Generate response using LLM
+            response_text = generate_response(conversation_history)
 
+            # Append LLM's response to history
             conversation_history.append({"role": "assistant", "content": response_text})
 
+            # Update conversation history in session
             request.session['conversation_history'] = conversation_history
 
+            # Update conversation history in session
+            request.session['conversation_history'] = conversation_history
+
+            response_url = response_to_audio(response_text)
+
+            # Check if conversation is ended
             if '[ORDER_CONFIRM]' in response_text:
+
                 finalize_order(request.session['session_id'], conversation_history)
 
+                print("Order finalized")
+
+                print("Clear sessions")
                 request.session.pop('conversation_history', None)
                 request.session.pop('session_id', None)
 
-            return JsonResponse({"response": response_text})
+                print("Going to confirmation page")
+
+            return JsonResponse({
+                "message": "Audio processed successfully!",
+                "audio_url": response_url,
+                "response_text": response_text,
+            })
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    total_time = time.time() - start_time
-    print(f"Total function execution time: {total_time:.6f} seconds")
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
