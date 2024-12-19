@@ -7,7 +7,8 @@ import uuid
 from django.views import View
 from django.contrib.sessions.models import Session
 from aaae.Order.models import Order, OrderItem, Transcript
-from utils import initialize_conversation_history, generate_response, finalize_order, response_to_audio
+from utils import initialize_conversation_history, generate_response, finalize_order
+from aaae.Order.connect_to_openAI import SocketManager
 
 
 class Orders(View):
@@ -48,7 +49,11 @@ class TakeOrder(View):
         initial_prompt = initialize_conversation_history()
         request.session['conversation_history'] = initial_prompt
 
-        return render(request, 'Order/take_order_2.html')
+        socket = SocketManager.get_socket()
+        if not socket:
+            return JsonResponse({"error": "WebSocket connection failed"}, status=500)
+
+        return render(request, 'Order/take_order.html')
 
 
 @csrf_exempt
@@ -80,11 +85,6 @@ def process_speech(request):
             # Update conversation history in session
             request.session['conversation_history'] = conversation_history
 
-            # Update conversation history in session
-            request.session['conversation_history'] = conversation_history
-
-            response_url = response_to_audio(response_text)
-
             # Check if conversation is ended
             if '[ORDER_CONFIRM]' in response_text:
 
@@ -98,11 +98,7 @@ def process_speech(request):
 
                 print("Going to confirmation page")
 
-            return JsonResponse({
-                "message": "Audio processed successfully!",
-                "audio_url": response_url,
-                "response_text": response_text,
-            })
+            return JsonResponse({"response": response_text})
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
